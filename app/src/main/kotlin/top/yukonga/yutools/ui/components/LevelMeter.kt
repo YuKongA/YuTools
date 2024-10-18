@@ -10,7 +10,6 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -75,21 +74,29 @@ fun LevelMeter() {
         val centerX = size.width / 2
         val centerY = size.height / 2
 
-        val circle1X = centerX + roll * 50
-        val circle1Y = centerY - pitch * 50
-        val circle2X = centerX - roll * 50
-        val circle2Y = centerY + pitch * 50
+        val circle1X = centerX + roll * 40
+        val circle1Y = centerY - pitch * 40
+        val circle2X = centerX - roll * 40
+        val circle2Y = centerY + pitch * 40
 
         val largerValue = if (abs(pitch) > abs(roll)) "${pitch.toInt()}°" else "${roll.toInt()}°"
         val textBounds = Rect()
 
         val angle = Math.toRadians(tiltAngle.toDouble())
+        val verticalOffset = if (pitch > 0f) (pitch - 90) * 45 else (90 + pitch) * 40
+        val horizontalOffset = if (roll > 0f) (90 - roll) * 45 else (-90 - roll) * 40
 
-        Log.d("LevelMeter", "pitch: $pitch, roll: $roll, tilt: $tilt")
-        val startX = centerX + size.width * sin(angle).toFloat()//+ horizontalOffset
-        val endX = centerX - size.width * sin(angle).toFloat()//+ horizontalOffset
-        val startY = centerY + size.width * cos(angle).toFloat()// + verticalOffset
-        val endY = centerY - size.width * cos(angle).toFloat()// + verticalOffset
+        var startX = centerX + size.width * sin(angle).toFloat()
+        var endX = centerX - size.width * sin(angle).toFloat()
+        var startY = centerY + size.width * cos(angle).toFloat() + verticalOffset
+        var endY = centerY - size.width * cos(angle).toFloat() + verticalOffset
+
+        if (((tilt > -90 && tilt < 90) && (roll > 45 && roll < 135)) || ((tilt > 90 || tilt < -90) && (roll > -135 && roll < -45))) {
+            startX = centerX + size.height * sin(angle).toFloat() + horizontalOffset
+            endX = centerX - size.height * sin(angle).toFloat() + horizontalOffset
+            startY = centerY + size.height * cos(angle).toFloat()
+            endY = centerY - size.height * cos(angle).toFloat()
+        }
 
         val saveLayer = drawContext.canvas.nativeCanvas.saveLayer(null, null)
 
@@ -105,9 +112,43 @@ fun LevelMeter() {
         }
         drawContext.canvas.nativeCanvas.drawCircle(circle1X, circle1Y, 297f, paint)
         drawContext.canvas.nativeCanvas.drawCircle(circle2X, circle2Y, 303f, paint)
-        drawContext.canvas.nativeCanvas.drawText(largerValue, centerX, centerY + textBounds.height() / 2, paint)
-        drawContext.canvas.nativeCanvas.drawLine(startX, startY, endX, endY, paint)
+
+        if (!(abs(pitch) > 60 || abs(roll) > 60)) {
+            drawContext.canvas.nativeCanvas.drawText(largerValue, centerX, centerY + textBounds.height() / 2, paint)
+        } else {
+            val crossSize = 20f
+            drawContext.canvas.nativeCanvas.drawLine(centerX - crossSize, centerY, centerX + crossSize, centerY, paint)
+            drawContext.canvas.nativeCanvas.drawLine(centerX, centerY - crossSize, centerX, centerY + crossSize, paint)
+            drawContext.canvas.nativeCanvas.drawLine(centerX, 0f, centerX, 150f, paint)
+            drawContext.canvas.nativeCanvas.drawLine(centerX, size.height, centerX, size.height - 320f, paint)
+            drawContext.canvas.nativeCanvas.drawLine(0f, centerY, 50f, centerY, paint)
+            drawContext.canvas.nativeCanvas.drawLine(size.width, centerY, size.width - 50f, centerY, paint)
+
+        }
+
+        if (abs(pitch) > 45 || abs(roll) > 45 || abs(tilt) > 45) {
+            drawContext.canvas.nativeCanvas.drawLine(startX, startY, endX, endY, paint)
+        }
+
 
         drawContext.canvas.nativeCanvas.restoreToCount(saveLayer)
     }
 }
+
+// tilt 为 90 / pitch 为 90 / roll 为 0 时手机竖屏垂直放置，手机头部向上
+// 此次 tilt < 90 时为手机向左倾斜，tilt > 90 时为手机向右倾斜
+
+// tilt 为 -90 / pitch 为 -90 / roll 为 0 时手机竖屏垂直放置，手机底部向上
+// 此次 tilt < -90 时为手机向左倾斜，tilt > -90 时为手机向右倾斜
+
+// tilt 为 0 / pitch 为 0 / roll 为 0 时手机屏幕正面朝上水平放置
+// 此时 roll > 0 时为手机向左倾斜，roll < 0 时为手机向右倾斜， pitch > 0 时为手机向前倾斜，pitch < 0 时为手机向后倾斜
+
+// tilt 为 0 / pitch 为 180 / roll 为 180 时手机屏幕反面朝下放置
+// 此时 roll > -180 时为手机向左倾斜，roll < 180 时为手机向右倾斜， pitch < 180 时为手机向前倾斜，pitch > -180  时为手机向后倾斜
+
+// tilt 为 0 / pitch 为 0 / roll 为 90 时手机横屏垂直放置，手机头部向左，底部向右
+// 此时 pitch < 0 时为手机向左倾斜，pitch > 0 时为手机向右倾斜
+
+// tilt 为 180 / pitch 为 0 / roll 为 -90 时手机横屏垂直放置，手机头部向右，底部向左
+// 此时 pitch > 0 时为手机向左倾斜，pitch < 0 时为手机向右倾斜
